@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Device Security Checkup — Threat Mitigation Group, CPE 510</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0B0E; --panel:#141419; --panel-2:#1A1A21; --elev:#1F1F27;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+    --text:#F1F1F4; --muted:#9A9AA6; --faint:#63636F;
+    --good:#4ADE80; --good-tint:rgba(74,222,128,.12);
+    --warn:#FBBF24; --warn-tint:rgba(251,191,36,.12);
+    --bad:#F87171;  --bad-tint:rgba(248,113,113,.12);
+    --white-btn:#F4F4F6;
+    --display:"Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --body:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; font-family:var(--body); color:var(--text); line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    background:
+      radial-gradient(circle at 18% 12%, rgba(120,90,220,.10), transparent 45%),
+      radial-gradient(circle at 88% 80%, rgba(60,120,200,.08), transparent 42%),
+      radial-gradient(circle, rgba(255,255,255,.045) 1px, transparent 1px) 0 0/23px 23px,
+      var(--bg);
+    background-attachment:fixed;
+  }
+
+  /* wires layer */
+  #wire-layer{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:2}
+  #wire-layer path{fill:none; transition:stroke .35s ease, stroke-width .35s ease, opacity .35s ease}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:12px 20px; position:sticky; top:0; z-index:50;
+    background:rgba(11,11,14,.72); backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line);
+  }
+  .brand{display:flex; align-items:center; gap:11px}
+  .brand .mark{
+    width:32px; height:32px; border-radius:9px; flex:none; display:grid; place-items:center;
+    background:conic-gradient(from 210deg, #7C5AE0, #4F8AE0, #4ADE80, #FBBF24, #7C5AE0);
+  }
+  .brand .mark span{width:14px; height:14px; border-radius:5px; background:var(--bg)}
+  .brand .name{font-family:var(--display); font-weight:600; font-size:14.5px; letter-spacing:.2px; line-height:1.15}
+  .brand small{display:block; font-family:var(--body); font-weight:400; font-size:11px; color:var(--faint); letter-spacing:.3px}
+  .center-title{
+    font-family:var(--mono); font-size:12px; letter-spacing:1px; color:var(--faint);
+    text-transform:lowercase; white-space:nowrap;
+  }
+  .center-title b{color:var(--muted); font-weight:500}
+  .bar-right{display:flex; align-items:center; gap:10px}
+
+  .seg{display:inline-flex; background:rgba(255,255,255,.06); border:1px solid var(--line); border-radius:10px; padding:3px}
+  .seg button{
+    font-family:var(--body); font-size:13px; font-weight:500; color:var(--muted);
+    background:transparent; border:0; padding:6px 12px; border-radius:7px; cursor:pointer; transition:.15s;
+    display:flex; align-items:center; gap:6px;
+  }
+  .seg button svg{width:14px; height:14px}
+  .seg button[aria-pressed="true"]{background:var(--elev); color:var(--text); box-shadow:0 1px 0 rgba(255,255,255,.06) inset}
+  .pill{
+    font-family:var(--body); font-size:13px; font-weight:600; border-radius:10px; padding:8px 14px;
+    cursor:pointer; transition:.15s; display:inline-flex; align-items:center; gap:7px; border:1px solid transparent;
+  }
+  .pill svg{width:15px; height:15px}
+  .pill.solid{background:var(--white-btn); color:#0B0B0E}
+  .pill.solid:hover{background:#fff}
+  .pill.line{background:transparent; color:var(--text); border-color:var(--line-2)}
+  .pill.line:hover{border-color:var(--muted)}
+  button:focus-visible, .seg button:focus-visible{outline:2px solid #7C5AE0; outline-offset:2px}
+
+  /* ---------- canvas title ---------- */
+  .canvas-title{max-width:1180px; margin:0 auto; padding:34px 24px 4px; text-align:center}
+  .eyebrow{font-family:var(--mono); font-size:11.5px; letter-spacing:1.6px; text-transform:uppercase; color:#8E7BE6; margin:0 0 12px}
+  .canvas-title h1{font-family:var(--display); font-weight:700; letter-spacing:-.6px; font-size:clamp(26px,4.4vw,40px); margin:0 0 12px; line-height:1.06}
+  .canvas-title p{color:var(--muted); font-size:15.5px; max-width:60ch; margin:0 auto}
+  .canvas-title p b{color:var(--text); font-weight:600}
+
+  /* ---------- graph ---------- */
+  .graph{max-width:1180px; margin:0 auto; padding:26px 24px 40px; display:grid; grid-template-columns:1fr 348px; gap:52px; align-items:start; position:relative; z-index:3}
+  .nodes{display:flex; flex-direction:column; gap:26px}
+
+  /* node card */
+  .node{
+    position:relative; background:linear-gradient(180deg, rgba(255,255,255,.02), transparent), var(--panel);
+    border:1px solid var(--line); border-radius:16px; z-index:3;
+    box-shadow:0 1px 0 rgba(255,255,255,.03) inset, 0 20px 40px -24px rgba(0,0,0,.8);
+  }
+  .node-head{display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line)}
+  .node-head .status{width:9px; height:9px; border-radius:50%; background:var(--c); flex:none; box-shadow:0 0 0 0 var(--c); transition:box-shadow .3s}
+  .node.done .node-head .status{box-shadow:0 0 10px 1px var(--c)}
+  .node-head h2{font-family:var(--display); font-weight:600; font-size:15.5px; margin:0; letter-spacing:-.2px; flex:1; min-width:0}
+  .node-head .prog{font-family:var(--mono); font-size:12.5px; color:var(--faint); flex:none}
+  .node-head .prog b{color:var(--c)}
+  /* output port on right edge of header */
+  .port-out{
+    position:absolute; right:-6px; top:23px; width:12px; height:12px; border-radius:50%;
+    background:var(--panel-2); border:2px solid var(--line-2); transition:.3s; z-index:4;
+  }
+  .node.done .port-out{background:var(--c); border-color:var(--c); box-shadow:0 0 10px 0 var(--c)}
+
+  .item{padding:14px 18px; border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item-row{display:flex; gap:12px; align-items:flex-start}
+  .cbx{position:relative; flex:none; margin-top:1px}
+  .cbx input{position:absolute; opacity:0; width:22px; height:22px; margin:0; cursor:pointer}
+  .cbx .box{width:22px; height:22px; border:1.5px solid var(--line-2); border-radius:7px; background:rgba(255,255,255,.03); display:grid; place-items:center; transition:.15s; pointer-events:none}
+  .cbx .box svg{width:13px; height:13px; stroke:#0B0B0E; opacity:0; transform:scale(.5); transition:.15s}
+  .cbx input:checked + .box{background:var(--good); border-color:var(--good)}
+  .cbx input:checked + .box svg{opacity:1; transform:scale(1)}
+  .cbx input:focus-visible + .box{outline:2px solid #7C5AE0; outline-offset:2px}
+  .item-body{flex:1; min-width:0}
+  .item-label{font-size:14.5px; font-weight:500; color:var(--text); cursor:pointer; display:block}
+  .tag{font-family:var(--mono); font-size:9.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--bad); background:var(--bad-tint); padding:2px 7px; border-radius:5px; margin-left:8px; vertical-align:middle; font-weight:600; white-space:nowrap}
+  .item-why{font-size:12.5px; color:var(--muted); margin:4px 0 0}
+  .fix-toggle{margin-top:8px; font-family:var(--body); font-size:12px; font-weight:600; color:#8E7BE6; background:transparent; border:0; padding:0; cursor:pointer; display:inline-flex; align-items:center; gap:5px}
+  .fix-toggle svg{width:12px; height:12px; transition:transform .2s}
+  .fix-toggle[aria-expanded="true"] svg{transform:rotate(90deg)}
+  .fix{margin-top:9px; background:rgba(255,255,255,.03); border:1px solid var(--line); border-radius:10px; padding:0 13px; max-height:0; overflow:hidden; transition:max-height .25s ease, padding .25s ease}
+  .fix.open{max-height:320px; padding:11px 13px}
+  .fix h4{font-family:var(--mono); font-size:10.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--faint); margin:0 0 6px}
+  .fix p{font-size:13px; color:#CFCFD6; margin:0; line-height:1.55}
+  .kbd{font-family:var(--mono); font-size:11.5px; background:rgba(255,255,255,.06); border:1px solid var(--line-2); border-radius:5px; padding:1px 6px}
+
+  /* ---------- side column (engine + result) ---------- */
+  .side{position:sticky; top:70px; align-self:start; max-height:calc(100vh - 86px); overflow:auto; display:flex; flex-direction:column; gap:34px; padding-right:2px}
+  .side::-webkit-scrollbar{width:8px}
+  .side::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08); border-radius:8px}
+
+  /* engine node */
+  .engine{position:relative}
+  .engine::before{content:""; position:absolute; inset:-30px -20px; border-radius:40px; z-index:-1;
+    background:radial-gradient(60% 55% at 60% 30%, rgba(124,90,224,.35), transparent 70%),
+               radial-gradient(50% 50% at 30% 80%, rgba(79,138,224,.22), transparent 70%);
+    filter:blur(8px); pointer-events:none}
+  .engine .node-head h2{flex:1}
+  .ports-in{display:flex; flex-wrap:wrap; gap:7px 12px; padding:12px 18px; border-bottom:1px solid var(--line)}
+  .ports-in .lbl{font-family:var(--mono); font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--faint); width:100%; margin-bottom:1px}
+  .pin{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); position:relative}
+  .pin .dot{width:9px; height:9px; border-radius:50%; background:var(--panel-2); border:2px solid var(--pc); transition:.3s; margin-left:-7px}
+  .pin.live .dot{background:var(--pc); box-shadow:0 0 9px 0 var(--pc)}
+  .pin.live{color:var(--text)}
+
+  .gauge-wrap{display:flex; flex-direction:column; align-items:center; padding:22px 18px 8px}
+  .gauge{position:relative; width:158px; height:158px}
+  .gauge svg{width:100%; height:100%; display:block; transform:rotate(-90deg)}
+  .gauge circle{fill:none; stroke-width:13; stroke-linecap:round}
+  .gauge .track{stroke:rgba(255,255,255,.07)}
+  .gauge .fill{stroke:var(--good); transition:stroke-dashoffset .6s cubic-bezier(.4,0,.2,1), stroke .4s}
+  .gauge .num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center}
+  .gauge .num b{font-family:var(--mono); font-size:42px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1; color:var(--text)}
+  .gauge .num span{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--faint); margin-top:4px}
+
+  .readouts{padding:6px 18px 16px}
+  .ro{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-top:1px solid var(--line)}
+  .ro:first-child{border-top:0}
+  .ro .k{font-size:12.5px; color:var(--muted)}
+  .ro .v{font-family:var(--mono); font-size:13px; font-variant-numeric:tabular-nums; background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:8px; padding:5px 11px; color:var(--text); min-width:64px; text-align:center}
+  .ro .v.good{color:var(--good)} .ro .v.warn{color:var(--warn)} .ro .v.bad{color:var(--bad)}
+  .engine-out{position:absolute; right:-6px; top:50%; width:12px; height:12px; border-radius:50%; background:var(--good); border:2px solid var(--good); box-shadow:0 0 10px 0 var(--good); z-index:4}
+
+  /* result node */
+  .result{position:relative}
+  .result .rhead{position:relative; height:74px; border-radius:16px 16px 0 0; overflow:hidden; border-bottom:1px solid var(--line);
+    background:linear-gradient(115deg, #2a2350, #1b2b52 45%, #163b3f 80%)}
+  .result .rhead::after{content:""; position:absolute; inset:0;
+    background:radial-gradient(70% 120% at 20% 120%, rgba(255,150,200,.5), transparent 60%),
+              radial-gradient(70% 120% at 80% -20%, rgba(120,200,255,.45), transparent 60%)}
+  .result .rhead .lbl{position:absolute; left:16px; top:13px; z-index:2; display:flex; align-items:center; gap:8px; font-family:var(--display); font-weight:600; font-size:14px}
+  .result .rhead .lbl .status{width:8px; height:8px; border-radius:50%; background:#8fd0ff; box-shadow:0 0 8px #8fd0ff}
+  .verdict{padding:16px 18px 6px}
+  .verdict .big{font-family:var(--display); font-weight:600; font-size:22px; margin:0}
+  .verdict .big.good{color:var(--good)} .verdict .big.warn{color:var(--warn)} .verdict .big.bad{color:var(--bad)}
+  .verdict .sub{font-size:12.5px; color:var(--muted); margin:5px 0 0}
+
+  .crit-flag{display:none; align-items:flex-start; gap:8px; margin:2px 18px 0; background:var(--bad-tint); border:1px solid rgba(248,113,113,.25); border-radius:10px; padding:10px 12px; font-size:12px; color:#ffb4b4; line-height:1.45}
+  .crit-flag.show{display:flex}
+  .crit-flag svg{width:15px; height:15px; flex:none; margin-top:1px; stroke:#ffb4b4}
+  .crit-flag b{color:#ffc9c9}
+
+  .fl-head{padding:14px 18px 6px; font-family:var(--mono); font-size:10.5px; letter-spacing:.7px; text-transform:uppercase; color:var(--faint)}
+  .fixlist-body{padding:0 18px; max-height:34vh; overflow:auto}
+  .fixlist-body::-webkit-scrollbar{width:7px} .fixlist-body::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:8px}
+  .fl-item{padding:11px 0; border-top:1px solid var(--line); display:flex; gap:10px; align-items:flex-start}
+  .fl-item:first-child{border-top:0}
+  .fl-dot{width:8px; height:8px; border-radius:50%; background:#8E7BE6; flex:none; margin-top:5px}
+  .fl-item.crit .fl-dot{background:var(--bad); box-shadow:0 0 7px 0 var(--bad)}
+  .fl-text b{display:block; font-size:13px; font-weight:600; margin-bottom:2px}
+  .fl-text span{font-size:12px; color:var(--muted)}
+  .fl-empty{padding:22px 18px 8px; text-align:center}
+  .fl-empty .big{font-family:var(--display); font-weight:600; font-size:17px; color:var(--good); margin:0 0 5px}
+  .fl-empty p{font-size:12.5px; color:var(--muted); margin:0}
+
+  .result-actions{display:grid; grid-template-columns:1fr 1fr; gap:9px; padding:14px 18px 16px}
+  .disclaimer{font-size:11px; color:var(--faint); padding:0 18px 16px; line-height:1.5}
+
+  /* floating right toolbar */
+  .float-tools{position:fixed; right:18px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; z-index:40}
+  .float-tools button{width:40px; height:40px; border-radius:11px; background:rgba(20,20,25,.8); backdrop-filter:blur(10px); border:1px solid var(--line); color:var(--muted); display:grid; place-items:center; cursor:pointer; transition:.15s}
+  .float-tools button:hover{color:var(--text); border-color:var(--line-2)}
+  .float-tools button svg{width:17px; height:17px}
+
+  /* footer */
+  footer{border-top:1px solid var(--line); padding:26px 24px; position:relative; z-index:3}
+  .foot-inner{max-width:1180px; margin:0 auto; text-align:center}
+  .dir{display:flex; flex-wrap:wrap; gap:9px; align-items:center; justify-content:center; margin-bottom:16px; font-family:var(--display); font-weight:600; font-size:14px}
+  .dir .arrow{color:#8E7BE6}
+  .foot-meta{font-size:12px; color:var(--faint); line-height:1.6}
+  .foot-meta b{color:var(--muted); font-weight:600}
+
+  /* responsive */
+  @media (max-width:900px){
+    #wire-layer, .float-tools{display:none}
+    .graph{grid-template-columns:1fr; gap:26px}
+    .side{position:sticky; top:60px; max-height:none; overflow:visible; flex-direction:column; gap:26px; order:-1}
+    .engine::before{inset:-14px}
+    .ports-in{display:none}
+    .gauge-wrap{padding:16px}
+    .fixlist-body{max-height:46vh}
+    .center-title{display:none}
+  }
+  @media (max-width:520px){
+    .topbar{gap:10px; padding:11px 15px}
+    .bar-right .pill{display:none}
+    .canvas-title{padding:24px 16px 2px}
+    .graph{padding:20px 15px 30px}
+    .result-actions{grid-template-columns:1fr}
+    .side .gauge{width:132px; height:132px}
+  }
+  @media (prefers-reduced-motion:reduce){ *{transition:none !important; scroll-behavior:auto} #wire-layer path{transition:none} }
+
+  /* ---------- print (clean light report) ---------- */
+  @media print{
+    body{background:#fff; color:#111}
+    #wire-layer, .float-tools, .topbar, .seg, .fix-toggle, .fix, .result-actions,
+    .disclaimer, .node-head .port-out, .ports-in, .engine-out, .pin, footer .dir,
+    .engine::before{display:none !important}
+    .canvas-title{padding:0 0 8px; text-align:left}
+    .canvas-title h1{font-size:24px; color:#111} .canvas-title p, .eyebrow{display:none}
+    .graph{display:block; padding:0; max-width:100%}
+    .side{position:static; max-height:none; overflow:visible; display:block; margin-top:14px}
+    .node, .engine, .result{background:#fff !important; border:1px solid #ccc; box-shadow:none; break-inside:avoid; page-break-inside:avoid; margin-bottom:12px}
+    .node-head{border-color:#ddd} .node-head h2{color:#111}
+    .item{border-color:#eee; break-inside:avoid} .item-label{color:#111} .item-why{color:#555}
+    .cbx .box{border-color:#333; background:#fff}
+    .result .rhead{background:#f0f0f0 !important; height:auto; padding:10px 16px} .result .rhead::after{display:none}
+    .result .rhead .lbl{position:static; color:#111}
+    .verdict .big{color:#111 !important} .verdict .sub{color:#555}
+    .gauge .num b{color:#111} .gauge .track{stroke:#e5e5e5}
+    .fl-head{color:#888} .fixlist-body{max-height:none; overflow:visible} .fl-item{border-color:#eee}
+    .fl-text b{color:#111} .fl-text span{color:#555}
+    .ro .v{background:#f2f2f2; color:#111; border-color:#ddd}
+    .crit-flag{background:#fff; border-color:#c00; color:#900} .crit-flag b{color:#900}
+    .foot-meta, .foot-meta b{color:#333}
+    footer{border-color:#ccc}
+    .print-note{display:block !important}
+  }
+  .print-note{display:none; font-size:11px; color:var(--faint); text-align:center; margin-top:10px}
+</style>
+</head>
+<body>
+
+<svg id="wire-layer" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"><span></span></span>
+    <span class="name">Device Security Checkup<small>Threat Mitigation Group · CPE 510</small></span>
+  </div>
+  <div class="center-title">device security checkup · <b>v1</b></div>
+  <div class="bar-right">
+    <div class="seg" role="group" aria-label="Choose your operating system">
+      <button id="btn-win" aria-pressed="true" onclick="setOS('win')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.5l7.5-1v7.2H3V5.5zm0 13l7.5 1v-7H3v6zm8.5 1.1L21 21V12.7h-9.5v6.9zM21 3l-9.5 1.3v7.1H21V3z"/></svg>Windows
+      </button>
+      <button id="btn-mac" aria-pressed="false" onclick="setOS('mac')">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.5 3c.1 1-.3 2-1 2.8-.7.8-1.7 1.4-2.7 1.3-.1-1 .4-2 1-2.7.7-.8 1.8-1.3 2.7-1.4zM19 17.3c-.5 1.1-.7 1.6-1.3 2.6-.9 1.3-2.1 3-3.6 3-1.4 0-1.7-.9-3.6-.9-1.8 0-2.2.9-3.6.9-1.5 0-2.7-1.6-3.5-2.9C1 19 .8 15.4 2.2 13.4c.9-1.4 2.4-2.2 3.8-2.2 1.4 0 2.3 1 3.5 1 1.1 0 1.8-1 3.5-1 1.2 0 2.5.7 3.4 1.8-3 1.6-2.5 5.9.6 6.5z"/></svg>macOS
+      </button>
+    </div>
+    <button class="pill solid" onclick="window.print()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Print
+    </button>
+    <button class="pill line" onclick="resetAll()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 019-9 9 9 0 016.7 3M21 3v6h-6"/></svg>Reset
+    </button>
+  </div>
+</div>
+
+<section class="canvas-title">
+  <p class="eyebrow">5-minute self-audit · runs entirely in your browser</p>
+  <h1>Is your device actually secure?</h1>
+  <p>Check off what's already true for your laptop. Each category feeds your live <b>security score</b> — and you'll get a printable fix-list for the rest. Switch <b>Windows / macOS</b> so the steps match your device.</p>
+</section>
+
+<div class="graph">
+  <div class="nodes" id="checklist"></div>
+
+  <div class="side">
+    <!-- ENGINE -->
+    <section class="node engine" id="engine">
+      <div class="node-head">
+        <span class="status" style="--c:#4ADE80"></span>
+        <h2>Security Score</h2>
+        <span class="prog" style="--c:#4ADE80">engine</span>
+      </div>
+      <div class="ports-in" id="ports-in"><span class="lbl">inputs</span></div>
+      <div class="gauge-wrap">
+        <div class="gauge">
+          <svg viewBox="0 0 158 158"><circle class="track" cx="79" cy="79" r="65"></circle><circle class="fill" id="gauge-fill" cx="79" cy="79" r="65"></circle></svg>
+          <div class="num"><b id="score-num">0</b><span>/ 100</span></div>
+        </div>
+      </div>
+      <div class="readouts">
+        <div class="ro"><span class="k">Checked</span><span class="v" id="ro-checked">0 / 19</span></div>
+        <div class="ro"><span class="k">Critical gaps</span><span class="v" id="ro-crit">—</span></div>
+        <div class="ro"><span class="k">Risk band</span><span class="v" id="ro-band">Not started</span></div>
+      </div>
+      <span class="engine-out" aria-hidden="true"></span>
+    </section>
+
+    <!-- RESULT -->
+    <section class="node result" id="result">
+      <div class="rhead"><span class="lbl"><span class="status"></span>Result</span></div>
+      <div class="verdict"><p class="big good" id="verdict-big">Not started</p><p class="sub" id="verdict-sub">Start checking items to build your score.</p></div>
+      <div class="crit-flag" id="crit-flag">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2 18a2 2 0 001.7 3h16.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+        <span id="crit-flag-text"></span>
+      </div>
+      <div class="fl-head">Your fix-list · this is what prints</div>
+      <div class="fixlist-body" id="fixlist-body"></div>
+      <div class="result-actions">
+        <button class="pill solid" onclick="window.print()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6z"/></svg>Print report
+        </button>
+        <button class="pill line" onclick="resetAll()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 019-9 9 9 0 016.7 3M21 3v6h-6"/></svg>Start over
+        </button>
+      </div>
+      <p class="disclaimer">Nothing you tick is uploaded, saved, or tracked. A hygiene guide, not a guarantee.</p>
+    </section>
+  </div>
+</div>
+
+<div class="float-tools" aria-label="Canvas controls">
+  <button title="Expand all fixes" onclick="expandAll(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg></button>
+  <button title="Collapse all fixes" onclick="expandAll(false)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button>
+  <button title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <div class="dir"><span>Detection</span><span class="arrow">→</span><span>Identification</span><span class="arrow">→</span><span>Removal</span></div>
+    <p class="foot-meta">Threat Mitigation is what happens after malware gets in — detect it, identify it, remove it. This checkup shrinks the chance it gets in at all.<br>Made by the <b>Threat Mitigation Group</b> · CPE 510 Computer Security Techniques · SP 800-83.</p>
+    <p class="print-note">Report generated from the Device Security Checkup · Threat Mitigation Group · CPE 510</p>
+  </div>
+</footer>
+
+<script>
+/* ---------------- category colors ---------------- */
+const CATCOLOR = { updates:"#E8C84D", malware:"#57D07A", accounts:"#5B9BF0", data:"#A98BF0", browser:"#4FD1D9", physical:"#F0607E", network:"#F0954F" };
+
+/* ---------------- data ---------------- */
+const DATA = [
+  { id:"updates", name:"Updates & patching",
+    items:[
+      { id:"os-updates", crit:true, label:"My operating system is up to date, with automatic updates on.",
+        why:"Updates patch the security holes attackers rely on. Turning them off leaves known doors open.",
+        win:"Settings → Windows Update → Check for updates. Turn on \u201CGet the latest updates as soon as they\u2019re available.\u201D",
+        mac:"System Settings → General → Software Update → turn on Automatic Updates (the \u24d8 button)." },
+      { id:"app-updates", label:"My browser and everyday apps are up to date.",
+        why:"Browsers and apps are patched constantly; an outdated one is an easy target on the web.",
+        win:"Update your browser from its menu, and open Microsoft Store → Library → Get updates.",
+        mac:"App Store → Updates. Update your browser from its own menu too." },
+      { id:"eol-os", crit:true, label:"I'm not running an operating system that's past end-of-support.",
+        why:"Unsupported systems (e.g. Windows 7/8, very old macOS) get no more security fixes — permanently exposed.",
+        win:"Run Windows 10 or 11. If you\u2019re on anything older, upgrade or replace the device.",
+        mac:"Run a macOS version Apple still updates (the current one and usually the two before it)." },
+    ]},
+  { id:"malware", name:"Malware protection",
+    items:[
+      { id:"av-on", crit:true, label:"I have anti-malware with real-time protection turned ON.",
+        why:"Real-time protection is what catches a threat the moment it lands, before it runs.",
+        win:"Windows Security → Virus & threat protection → Manage settings → Real-time protection = On. (Built-in Defender is solid.)",
+        mac:"macOS has built-in protection (XProtect + Gatekeeper) — keep Gatekeeper on. For real-time + on-demand scans, add Malwarebytes for Mac." },
+      { id:"firewall", crit:true, label:"My firewall is enabled.",
+        why:"A firewall blocks unwanted connections in and out — a basic barrier every device should have on.",
+        win:"Windows Security → Firewall & network protection → make sure all three profiles show \u201COn.\u201D",
+        mac:"System Settings → Network → Firewall → turn it On." },
+      { id:"scan-recent", label:"I know how to run a manual scan, and I've done one in the last month.",
+        why:"Real-time protection can miss things; a periodic full scan is your catch-all safety net.",
+        win:"Windows Security → Virus & threat protection → Scan options → Full scan.",
+        mac:"Run a full scan in Malwarebytes, or use ClamAV (clamscan) from the Terminal." },
+      { id:"check-files", label:"I check unfamiliar files or links before opening them.",
+        why:"A 10-second check on a suspicious download or link stops most infections before they start.",
+        win:"Upload the file or paste the link at virustotal.com — 60+ engines check it for free.",
+        mac:"Upload the file or paste the link at virustotal.com — 60+ engines check it for free." },
+    ]},
+  { id:"accounts", name:"Accounts & access",
+    items:[
+      { id:"standard-acct", crit:true, label:"My everyday account is a standard user, not an administrator.",
+        why:"If malware runs under an admin account, it can take over everything. A standard account limits the damage.",
+        win:"Settings → Accounts → Other users. Use a Standard account daily; enter an admin password only when a change needs it.",
+        mac:"System Settings → Users & Groups. Keep a separate Administrator account and do daily work in a standard one." },
+      { id:"mfa", crit:true, label:"I've turned on two-factor authentication (2FA) on my key accounts.",
+        why:"Even if your password leaks, 2FA stops someone logging into your email, portal, or bank.",
+        win:"In each account\u2019s security settings, enable 2FA. Prefer an authenticator app (Google/Microsoft Authenticator) over SMS.",
+        mac:"In each account\u2019s security settings, enable 2FA. Prefer an authenticator app over SMS." },
+      { id:"passwords", label:"I use strong, unique passwords — not the same one everywhere.",
+        why:"Reusing one password means a single leak unlocks all your accounts at once.",
+        win:"Use a password manager (Bitwarden is free, or your browser\u2019s built-in one) so every account has a different strong password.",
+        mac:"Use a password manager — iCloud Keychain is built in, or Bitwarden — so every account has a different strong password." },
+      { id:"lock", label:"My screen locks itself and needs a password/biometric to wake.",
+        why:"An unlocked device left alone is wide open — anyone can copy files or install something in seconds.",
+        win:"Settings → Accounts → Sign-in options → require sign-in on wake. Lock instantly with <span class='kbd'>Win + L</span>.",
+        mac:"System Settings → Lock Screen → require password after sleep. Lock instantly with <span class='kbd'>Ctrl + Cmd + Q</span>." },
+    ]},
+  { id:"data", name:"Data & recovery",
+    items:[
+      { id:"encryption", crit:true, label:"Disk encryption is on, so my data is safe if the device is lost or stolen.",
+        why:"Without encryption, a stolen laptop hands over all your files — even without your password.",
+        win:"Turn on BitLocker: Settings → Privacy & security → Device encryption (or search \u201CBitLocker\u201D).",
+        mac:"System Settings → Privacy & Security → FileVault → Turn On." },
+      { id:"backup", label:"My important files are backed up and I could recover them.",
+        why:"Ransomware, theft, or a dead drive can erase everything at once. A backup is the only real undo.",
+        win:"Use OneDrive/Google Drive for documents, and/or Windows File History to an external drive.",
+        mac:"Use iCloud/Google Drive for documents, and/or Time Machine to an external drive." },
+    ]},
+  { id:"browser", name:"Browser & web",
+    items:[
+      { id:"extensions", label:"I've reviewed my browser extensions and removed ones I don't recognise.",
+        why:"A shady extension can read everything you type and browse. Fewer, trusted extensions = smaller risk.",
+        win:"Open your browser\u2019s Extensions/Add-ons page and remove anything you didn\u2019t install on purpose.",
+        mac:"Open your browser\u2019s Extensions page (or Safari → Settings → Extensions) and remove unknown ones." },
+      { id:"safe-browsing", label:"Phishing / \u201Csafe browsing\u201D protection is on in my browser.",
+        why:"It warns you before you land on a fake login page or malware download.",
+        win:"Chrome/Edge: turn on Safe Browsing (Standard or Enhanced) in Privacy settings.",
+        mac:"Safari: enable \u201CWarn when visiting a fraudulent website.\u201D Chrome: turn on Safe Browsing." },
+    ]},
+  { id:"physical", name:"Physical & USB",
+    items:[
+      { id:"usb", label:"I don't plug unknown USB drives into my device.",
+        why:"A \u201Cfound\u201D or gifted USB is a classic way to auto-load malware the moment it connects.",
+        win:"Don\u2019t trust USBs you didn\u2019t buy or set up yourself. When unsure, scan before opening anything.",
+        mac:"Don\u2019t trust USBs you didn\u2019t buy or set up yourself. When unsure, scan before opening anything." },
+      { id:"unattended", label:"I don't leave my device unlocked and unattended in public.",
+        why:"In a library or lab, seconds of access is enough to copy files or plant something.",
+        win:"Lock it every time you step away (<span class='kbd'>Win + L</span>) — treat it like your wallet.",
+        mac:"Lock it every time you step away (<span class='kbd'>Ctrl + Cmd + Q</span>) — treat it like your wallet." },
+    ]},
+  { id:"network", name:"Network",
+    items:[
+      { id:"router", label:"I've changed my home router's default admin password.",
+        why:"Default router passwords are public knowledge — anyone nearby can reconfigure your network.",
+        win:"Log into your router (often 192.168.0.1 or 192.168.1.1) and change the admin password.",
+        mac:"Log into your router (often 192.168.0.1 or 192.168.1.1) and change the admin password." },
+      { id:"public-wifi", label:"On public Wi-Fi, I avoid sensitive logins (or use a VPN).",
+        why:"Open Wi-Fi can be snooped. Banking or portal logins there can be intercepted.",
+        win:"Treat open Wi-Fi as untrusted: save sensitive logins for trusted networks, or use a VPN.",
+        mac:"Treat open Wi-Fi as untrusted: save sensitive logins for trusted networks, or use a VPN." },
+    ]},
+];
+
+/* ---------------- state ---------------- */
+let OS = "win";
+const state = {};
+const allItems = DATA.flatMap(c => c.items);
+allItems.forEach(i => state[i.id] = false);
+const WEIGHT = i => i.crit ? 3 : 1;
+const MAX = allItems.reduce((s,i)=>s+WEIGHT(i),0);
+const CIRC = 2 * Math.PI * 65;
+const catDone = cat => cat.items.every(i => state[i.id]);
+
+/* ---------------- build ---------------- */
+function build(){
+  document.getElementById("checklist").innerHTML = DATA.map(cat => `
+    <section class="node" data-cat="${cat.id}" style="--c:${CATCOLOR[cat.id]}">
+      <div class="node-head">
+        <span class="status"></span>
+        <h2>${cat.name}</h2>
+        <span class="prog" data-prog="${cat.id}"><b>0</b>/${cat.items.length}</span>
+        <span class="port-out" data-out="${cat.id}"></span>
+      </div>
+      ${cat.items.map(it => `
+        <div class="item">
+          <div class="item-row">
+            <span class="cbx">
+              <input type="checkbox" id="chk-${it.id}" onchange="toggle('${it.id}')" aria-label="${it.label}">
+              <span class="box"><svg viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg></span>
+            </span>
+            <div class="item-body">
+              <label class="item-label" for="chk-${it.id}">${it.label}${it.crit?'<span class="tag">Critical</span>':''}</label>
+              <p class="item-why">${it.why}</p>
+              <button class="fix-toggle" aria-expanded="false" onclick="toggleFix(this,'${it.id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>How to fix it
+              </button>
+              <div class="fix" id="fix-${it.id}"><h4 data-os-label>On Windows</h4><p data-fix="${it.id}">${it.win}</p></div>
+            </div>
+          </div>
+        </div>`).join("")}
+    </section>`).join("");
+
+  // engine input ports
+  const pin = DATA.map(cat => `<span class="pin" data-pin="${cat.id}" style="--pc:${CATCOLOR[cat.id]}" title="${cat.name}"><span class="dot"></span>${cat.name.split(" ")[0]}</span>`).join("");
+  document.getElementById("ports-in").insertAdjacentHTML("beforeend", pin);
+}
+
+function setOS(os){
+  OS = os;
+  document.getElementById("btn-win").setAttribute("aria-pressed", os==="win");
+  document.getElementById("btn-mac").setAttribute("aria-pressed", os==="mac");
+  document.querySelectorAll("[data-os-label]").forEach(el => el.textContent = os==="win"?"On Windows":"On macOS");
+  allItems.forEach(it => { const p=document.querySelector(`[data-fix="${it.id}"]`); if(p) p.innerHTML = os==="win"?it.win:it.mac; });
+  render();
+}
+function toggle(id){ state[id]=document.getElementById("chk-"+id).checked; render(); }
+function toggleFix(btn,id){ const b=document.getElementById("fix-"+id); const open=b.classList.toggle("open"); btn.setAttribute("aria-expanded",open); scheduleWires(); setTimeout(scheduleWires,300); }
+function expandAll(open){ document.querySelectorAll(".fix").forEach(f=>f.classList.toggle("open",open)); document.querySelectorAll(".fix-toggle").forEach(t=>t.setAttribute("aria-expanded",open)); scheduleWires(); setTimeout(scheduleWires,300); }
+function resetAll(){ allItems.forEach(i=>{state[i.id]=false; const el=document.getElementById("chk-"+i.id); if(el) el.checked=false;}); render(); window.scrollTo({top:0,behavior:"smooth"}); }
+
+/* ---------------- render ---------------- */
+function render(){
+  const earned = allItems.reduce((s,i)=> s+(state[i.id]?WEIGHT(i):0),0);
+  const score = Math.round(earned/MAX*100);
+  const checked = allItems.filter(i=>state[i.id]).length;
+  const critMissing = allItems.filter(i=>i.crit && !state[i.id]);
+
+  // gauge
+  const fill = document.getElementById("gauge-fill");
+  fill.style.strokeDasharray = CIRC;
+  fill.style.strokeDashoffset = CIRC*(1-score/100);
+  document.getElementById("score-num").textContent = score;
+
+  // band logic
+  let cls,label;
+  if(checked===0){ cls="good"; label="Not started"; fill.style.stroke="rgba(255,255,255,.14)"; }
+  else if(critMissing.length>0){ cls="bad"; label="Critical gaps"; fill.style.stroke="var(--bad)"; }
+  else if(score>=85){ cls="good"; label="Solid"; fill.style.stroke="var(--good)"; }
+  else if(score>=60){ cls="warn"; label="Needs work"; fill.style.stroke="var(--warn)"; }
+  else { cls="bad"; label="At risk"; fill.style.stroke="var(--bad)"; }
+
+  // readouts
+  document.getElementById("ro-checked").textContent = `${checked} / ${allItems.length}`;
+  const roc = document.getElementById("ro-crit");
+  roc.textContent = critMissing.length===0 ? (checked>0?"0":"—") : critMissing.length;
+  roc.className = "v " + (critMissing.length>0?"bad":(checked>0?"good":""));
+  const rob = document.getElementById("ro-band");
+  rob.textContent = label; rob.className = "v "+cls;
+
+  // verdict
+  const vb = document.getElementById("verdict-big"); vb.textContent=label; vb.className="big "+cls;
+  const subs = { "Not started":"Start checking items to build your score.",
+    "Critical gaps":"You've left critical protections off. Fix those first.",
+    "Solid":"Strong hygiene. Re-run this now and then to stay sharp.",
+    "Needs work":"A decent base — clear the fix-list to get solid.",
+    "At risk":"Several key protections are missing. Work through the fix-list." };
+  document.getElementById("verdict-sub").textContent = subs[label];
+
+  // critical flag
+  const flag=document.getElementById("crit-flag");
+  if(critMissing.length>0){ flag.classList.add("show"); document.getElementById("crit-flag-text").innerHTML=`<b>${critMissing.length} critical ${critMissing.length===1?"item":"items"}</b> still unchecked — these matter more than the rest combined.`; }
+  else flag.classList.remove("show");
+
+  // per-category state + input ports
+  DATA.forEach(cat=>{
+    const done = cat.items.filter(i=>state[i.id]).length;
+    const pr=document.querySelector(`[data-prog="${cat.id}"]`); if(pr) pr.innerHTML=`<b>${done}</b>/${cat.items.length}`;
+    const node=document.querySelector(`.node[data-cat="${cat.id}"]`); if(node) node.classList.toggle("done", done===cat.items.length);
+    const pin=document.querySelector(`[data-pin="${cat.id}"]`); if(pin) pin.classList.toggle("live", done===cat.items.length);
+  });
+
+  renderFixlist();
+  scheduleWires();
+}
+
+function renderFixlist(){
+  const body=document.getElementById("fixlist-body");
+  const missing=allItems.filter(i=>!state[i.id]);
+  missing.sort((a,b)=>(b.crit?1:0)-(a.crit?1:0));
+  if(missing.length===0){ body.innerHTML=`<div class="fl-empty"><p class="big">Nothing to fix — nice work.</p><p>Every item is checked. Re-run now and then and keep updates on.</p></div>`; return; }
+  body.innerHTML=missing.map(i=>`<div class="fl-item ${i.crit?'crit':''}"><span class="fl-dot"></span><div class="fl-text"><b>${i.label}${i.crit?' · critical':''}</b><span>${OS==="win"?i.win:i.mac}</span></div></div>`).join("");
+}
+
+/* ---------------- wires ---------------- */
+const layer = document.getElementById("wire-layer");
+const paths = {};
+function ensurePath(id){
+  if(!paths[id]){ const p=document.createElementNS("http://www.w3.org/2000/svg","path"); layer.appendChild(p); paths[id]=p; }
+  return paths[id];
+}
+function updateWires(){
+  const W=window.innerWidth, H=window.innerHeight;
+  if(W<=900){ Object.values(paths).forEach(p=>p.setAttribute("d","")); return; }
+  layer.setAttribute("viewBox",`0 0 ${W} ${H}`);
+  DATA.forEach(cat=>{
+    const out=document.querySelector(`[data-out="${cat.id}"]`);
+    const pin=document.querySelector(`[data-pin="${cat.id}"] .dot`);
+    const p=ensurePath(cat.id);
+    if(!out||!pin){ p.setAttribute("d",""); return; }
+    const a=out.getBoundingClientRect(), b=pin.getBoundingClientRect();
+    const x1=a.left+a.width/2, y1=a.top+a.height/2, x2=b.left+b.width/2, y2=b.top+b.height/2;
+    const dx=Math.max(50, Math.abs(x2-x1)*0.55);
+    p.setAttribute("d",`M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`);
+    const done=catDone(cat);
+    p.setAttribute("stroke", done?CATCOLOR[cat.id]:"rgba(255,255,255,.13)");
+    p.setAttribute("stroke-width", done?2:1.3);
+    p.setAttribute("opacity", done?0.95:0.5);
+  });
+}
+let tick=false;
+function scheduleWires(){ if(tick) return; tick=true; requestAnimationFrame(()=>{updateWires(); tick=false;}); }
+window.addEventListener("scroll",scheduleWires,{passive:true});
+window.addEventListener("resize",scheduleWires);
+document.querySelector(".side").addEventListener("scroll",scheduleWires,{passive:true});
+
+/* ---------------- init ---------------- */
+build();
+setOS("win");
+render();
+requestAnimationFrame(()=>requestAnimationFrame(updateWires));
+window.addEventListener("load", ()=>setTimeout(updateWires,120));
+</script>
+</body>
+</html>
